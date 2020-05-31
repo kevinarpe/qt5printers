@@ -82,6 +82,20 @@ def _ms_is_valid(msecs):
     """Return whether QTime would consider a ms since midnight valid."""
     return msecs >= 0 and msecs <= 86400000
 
+def _get_template_argument_type_name(gdb_type):
+    """Workaround issue when gdb_type is pointer to user-defined type, e.g., class MyClass.
+       Oddly, gdb_type.name is None, but str(gdb_type) is: 'MyClass *'
+
+       Read more about gdb_type (gdb.Type) here:
+       https://sourceware.org/gdb/onlinedocs/gdb/Types-In-Python.html
+    """
+    # This has been observed when: gdb.TYPE_CODE_PTR == gdb_type.code
+    if gdb_type.name is None:
+        # Ex: 'MyClass *'
+        return str(gdb_type)
+    else:
+        return gdb_type.name
+
 class ArrayIter:
     """Iterates over a fixed-size array."""
     def __init__(self, array, size):
@@ -614,7 +628,10 @@ class QMapPrinter:
         realtype = self.val.type.strip_typedefs()
         keytype = realtype.template_argument(0)
         valtype = realtype.template_argument(1)
-        node_type = gdb.lookup_type('QMapData<' + keytype.name + ',' + valtype.name + '>::Node')
+        keytype_name = _get_template_argument_type_name(keytype)
+        valtype_name = _get_template_argument_type_name(valtype)
+
+        node_type = gdb.lookup_type('QMapData<' + keytype_name + ',' + valtype_name + '>::Node')
 
         return self.Iter(d['header'], node_type.pointer())
 
